@@ -383,7 +383,12 @@ def main_app():
 # ------------------------ Main ------------------------
 def main():
     st.set_page_config(page_title="Cat’s Cradle", page_icon="🐱", layout="centered")
+    
+    # Show logo (change path/filename as needed)
+    st.image("photos/cats_cradle_logo.png", width=200)
+    
     st.title("🐱 Cat’s Cradle")
+
     if not st.session_state.user:
         auth_choice = st.sidebar.radio("Auth", ["Login", "Register"])
         if auth_choice == "Login":
@@ -392,6 +397,3 @@ def main():
             register_page()
     else:
         main_app()
-
-if __name__ == "__main__":
-    main()
