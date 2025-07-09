@@ -113,7 +113,7 @@ def add_child_page():
     parents = []
     add_more_parents = True
     idx = 0
-    # We'll allow adding multiple parents dynamically:
+    # Allow multiple parents dynamically:
     while add_more_parents:
         st.markdown(f"**Parent #{idx + 1}**")
         p_name = st.text_input(f"Parent Name #{idx + 1}", key=f"parent_name_{idx}")
@@ -121,11 +121,7 @@ def add_child_page():
         p_phone = st.text_input(f"Parent Phone #{idx + 1}", key=f"parent_phone_{idx}")
         parents.append({"name": p_name, "email": p_email, "phone": p_phone})
 
-        if idx == 0:
-            add_more = st.checkbox("Add another parent?", key=f"add_parent_{idx}")
-        else:
-            add_more = st.checkbox("Add another parent?", key=f"add_parent_{idx}")
-
+        add_more = st.checkbox("Add another parent?", key=f"add_parent_{idx}")
         if add_more:
             idx += 1
         else:
@@ -136,7 +132,7 @@ def add_child_page():
             st.error("Child name is required.")
             return
 
-        # Filter out empty parent entries (all fields empty)
+        # Filter empty parent entries
         filtered_parents = [p for p in parents if any(p.values())]
 
         children = load_json(DATA_FILES["children"])
@@ -176,7 +172,7 @@ def view_children_page():
 
             st.text(f"Notes: {child['notes']}")
 
-            # Show parents info if available
+            # Show parents info
             parents = child.get("parents_info", [])
             if parents:
                 st.markdown("**Parent(s) Info:**")
@@ -204,12 +200,215 @@ def sos_log_page():
         for log in st.session_state.sos_log:
             st.write(log)
 
+# ------------------------ New Features ------------------------
+def activity_tracking_page():
+    st.header("Baby Activity Tracking")
+    activities = load_json(DATA_FILES["activities"])
+    user_email = st.session_state.user["email"]
+    child_name = st.text_input("Child's Name")
+    activity = st.selectbox("Activity Type", ["Feeding", "Sleep", "Diaper Change", "Medication", "Growth"])
+    notes = st.text_area("Details / Notes")
+    if st.button("Save Activity"):
+        key = str(len(activities) + 1)
+        activities[key] = {
+            "parent": user_email,
+            "child": child_name,
+            "activity": activity,
+            "notes": notes,
+            "timestamp": datetime.now().isoformat()
+        }
+        save_json(DATA_FILES["activities"], activities)
+        st.success("Activity saved!")
+
+    st.subheader("Your Logged Activities")
+    for a in activities.values():
+        if a["parent"] == user_email:
+            st.markdown(f"**{a['child']}** - {a['activity']} at {a['timestamp']}")
+            st.text(a["notes"])
+
+def milestone_tracking_page():
+    st.header("Milestone Tracking")
+    milestones = load_json(DATA_FILES["milestones"])
+    user_email = st.session_state.user["email"]
+    child_name = st.text_input("Child's Name")
+    milestone = st.text_input("Milestone Achieved")
+    notes = st.text_area("Notes")
+    if st.button("Save Milestone"):
+        key = str(len(milestones) + 1)
+        milestones[key] = {
+            "parent": user_email,
+            "child": child_name,
+            "milestone": milestone,
+            "notes": notes,
+            "timestamp": datetime.now().isoformat()
+        }
+        save_json(DATA_FILES["milestones"], milestones)
+        st.success("Milestone saved!")
+
+    st.subheader("Your Milestones")
+    for m in milestones.values():
+        if m["parent"] == user_email:
+            st.markdown(f"**{m['child']}** - {m['milestone']} at {m['timestamp']}")
+            st.text(m["notes"])
+
+def health_tracking_page():
+    st.header("Health Tracking")
+    health = load_json(DATA_FILES["health"])
+    user_email = st.session_state.user["email"]
+    child_name = st.text_input("Child's Name")
+    health_event = st.text_input("Event (e.g. Vaccination, Doctor Visit, Symptom)")
+    notes = st.text_area("Details")
+    if st.button("Save Health Event"):
+        key = str(len(health) + 1)
+        health[key] = {
+            "parent": user_email,
+            "child": child_name,
+            "event": health_event,
+            "notes": notes,
+            "timestamp": datetime.now().isoformat()
+        }
+        save_json(DATA_FILES["health"], health)
+        st.success("Health record saved!")
+
+    st.subheader("Your Health Records")
+    for h in health.values():
+        if h["parent"] == user_email:
+            st.markdown(f"**{h['child']}** - {h['event']} at {h['timestamp']}")
+            st.text(h["notes"])
+
+def todos_page():
+    st.header("To-Do Lists")
+    todos = load_json(DATA_FILES["todos"])
+    user_email = st.session_state.user["email"]
+    task = st.text_input("Task")
+    if st.button("Add Task"):
+        key = str(len(todos) + 1)
+        todos[key] = {
+            "parent": user_email,
+            "task": task,
+            "done": False
+        }
+        save_json(DATA_FILES["todos"], todos)
+        st.success("Task added!")
+
+    st.subheader("Your Tasks")
+    for k, t in todos.items():
+        if t["parent"] == user_email:
+            done = st.checkbox(t["task"], value=t["done"], key=k)
+            if done != t["done"]:
+                t["done"] = done
+                save_json(DATA_FILES["todos"], todos)
+
+def reminders_page():
+    st.header("Reminders")
+    reminders = load_json(DATA_FILES["reminders"])
+    user_email = st.session_state.user["email"]
+    reminder = st.text_input("Reminder Text")
+    if st.button("Save Reminder"):
+        key = str(len(reminders) + 1)
+        reminders[key] = {
+            "parent": user_email,
+            "reminder": reminder,
+            "timestamp": datetime.now().isoformat()
+        }
+        save_json(DATA_FILES["reminders"], reminders)
+        st.success("Reminder saved!")
+
+    st.subheader("Your Reminders")
+    for r in reminders.values():
+        if r["parent"] == user_email:
+            st.markdown(f"- {r['reminder']} ({r['timestamp']})")
+
+def documents_page():
+    st.header("Document Upload")
+    documents = FOLDER_PATHS["documents"]
+    uploaded = st.file_uploader("Upload Document", type=["pdf", "png", "jpg", "jpeg"])
+    if uploaded:
+        path = os.path.join(documents, uploaded.name)
+        with open(path, "wb") as f:
+            f.write(uploaded.read())
+        st.success(f"Uploaded {uploaded.name}")
+
+    st.subheader("Uploaded Documents")
+    for fname in os.listdir(documents):
+        st.markdown(f"- {fname}")
+
+def expenses_page():
+    st.header("Expense Tracking")
+    expenses = load_json(DATA_FILES["expenses"])
+    user_email = st.session_state.user["email"]
+    desc = st.text_input("Expense Description")
+    amount = st.number_input("Amount", min_value=0.0, step=1.0)
+    if st.button("Save Expense"):
+        key = str(len(expenses) + 1)
+        expenses[key] = {
+            "parent": user_email,
+            "desc": desc,
+            "amount": amount,
+            "timestamp": datetime.now().isoformat()
+        }
+        save_json(DATA_FILES["expenses"], expenses)
+        st.success("Expense saved!")
+
+    st.subheader("Your Expenses")
+    total = 0
+    for e in expenses.values():
+        if e["parent"] == user_email:
+            st.markdown(f"- {e['desc']}: ${e['amount']} ({e['timestamp']})")
+            total += e["amount"]
+    st.markdown(f"**Total: ${total}**")
+
+def messages_page():
+    st.header("Secure Messaging")
+    messages = load_json(DATA_FILES["messages"])
+    user_email = st.session_state.user["email"]
+    msg = st.text_area("Your Message")
+    if st.button("Send"):
+        key = str(len(messages) + 1)
+        messages[key] = {
+            "parent": user_email,
+            "msg": msg,
+            "timestamp": datetime.now().isoformat()
+        }
+        save_json(DATA_FILES["messages"], messages)
+        st.success("Message sent!")
+
+    st.subheader("Your Messages")
+    for m in messages.values():
+        if m["parent"] == user_email:
+            st.markdown(f"{m['timestamp']}: {m['msg']}")
+
+def wellness_page():
+    st.header("Mental Wellness Check-ins")
+    wellness = load_json(DATA_FILES["wellness"])
+    user_email = st.session_state.user["email"]
+    mood = st.slider("How are you feeling?", 0, 10, 5)
+    notes = st.text_area("Notes")
+    if st.button("Save Check-in"):
+        key = str(len(wellness) + 1)
+        wellness[key] = {
+            "parent": user_email,
+            "mood": mood,
+            "notes": notes,
+            "timestamp": datetime.now().isoformat()
+        }
+        save_json(DATA_FILES["wellness"], wellness)
+        st.success("Check-in saved!")
+
+    st.subheader("Your Check-ins")
+    for w in wellness.values():
+        if w["parent"] == user_email:
+            st.markdown(f"{w['timestamp']}: Mood {w['mood']}")
+            st.text(w["notes"])
+
 # ------------------------ Main App ------------------------
 def main_app():
     st.sidebar.title(f"Welcome, {st.session_state.user['full_name']}")
     choice = st.sidebar.selectbox("Menu", [
         "Dashboard", "Add Child", "SOS Log",
-        "Logout"
+        "Activity Tracking", "Milestone Tracking", "Health Tracking",
+        "To-Do Lists", "Reminders", "Document Upload",
+        "Expenses", "Secure Messaging", "Mental Wellness", "Logout"
     ])
     if choice == "Dashboard":
         view_children_page()
@@ -217,6 +416,24 @@ def main_app():
         add_child_page()
     elif choice == "SOS Log":
         sos_log_page()
+    elif choice == "Activity Tracking":
+        activity_tracking_page()
+    elif choice == "Milestone Tracking":
+        milestone_tracking_page()
+    elif choice == "Health Tracking":
+        health_tracking_page()
+    elif choice == "To-Do Lists":
+        todos_page()
+    elif choice == "Reminders":
+        reminders_page()
+    elif choice == "Document Upload":
+        documents_page()
+    elif choice == "Expenses":
+        expenses_page()
+    elif choice == "Secure Messaging":
+        messages_page()
+    elif choice == "Mental Wellness":
+        wellness_page()
     elif choice == "Logout":
         st.session_state.user = None
         safe_rerun()
