@@ -59,11 +59,9 @@ def generate_qr_code(child_id, info):
     return path
 
 def safe_rerun():
-    """Call Streamlit's rerun function with fallback."""
     try:
         st.experimental_rerun()
     except AttributeError:
-        # Fallback for older Streamlit versions - do nothing or handle differently
         st.warning("Please refresh the page manually.")
 
 # ------------------------ Session ------------------------
@@ -110,10 +108,37 @@ def add_child_page():
     age = st.number_input("Age", min_value=0, max_value=25, step=1)
     notes = st.text_area("Notes")
     photo = st.file_uploader("Upload Photo", type=["png", "jpg", "jpeg"])
+
+    st.markdown("### Add Parent(s) Information")
+    parents = []
+    add_more_parents = True
+    idx = 0
+    # We'll allow adding multiple parents dynamically:
+    while add_more_parents:
+        st.markdown(f"**Parent #{idx + 1}**")
+        p_name = st.text_input(f"Parent Name #{idx + 1}", key=f"parent_name_{idx}")
+        p_email = st.text_input(f"Parent Email #{idx + 1}", key=f"parent_email_{idx}")
+        p_phone = st.text_input(f"Parent Phone #{idx + 1}", key=f"parent_phone_{idx}")
+        parents.append({"name": p_name, "email": p_email, "phone": p_phone})
+
+        if idx == 0:
+            add_more = st.checkbox("Add another parent?", key=f"add_parent_{idx}")
+        else:
+            add_more = st.checkbox("Add another parent?", key=f"add_parent_{idx}")
+
+        if add_more:
+            idx += 1
+        else:
+            add_more_parents = False
+
     if st.button("Save Child"):
         if not name:
             st.error("Child name is required.")
             return
+
+        # Filter out empty parent entries (all fields empty)
+        filtered_parents = [p for p in parents if any(p.values())]
+
         children = load_json(DATA_FILES["children"])
         child_id = str(len(children) + 1)
         photo_path = ""
@@ -121,15 +146,17 @@ def add_child_page():
             photo_path = os.path.join(FOLDER_PATHS["photos"], f"{child_id}_{photo.name}")
             with open(photo_path, "wb") as f:
                 f.write(photo.read())
+
         children[child_id] = {
             "name": name,
             "age": age,
             "notes": notes,
             "photo": photo_path,
-            "parent_email": st.session_state.user["email"]
+            "parent_email": st.session_state.user["email"],
+            "parents_info": filtered_parents
         }
         save_json(DATA_FILES["children"], children)
-        info = f"I’m lost! My name is {name}. Contact my parent: {st.session_state.user['email']}"
+        info = f"I’m lost! My name is {name}. Contact my parent(s): " + ", ".join([p.get("email","") for p in filtered_parents])
         generate_qr_code(child_id, info)
         st.success("Child added successfully!")
 
@@ -144,14 +171,27 @@ def view_children_page():
     for cid, child in user_children.items():
         with st.expander(f"{child['name']} (Age {child['age']})"):
             if child["photo"]:
-                st.image(child["photo"], width=150)
+                if st.button(f"Show Photo for {child['name']}", key=f"photo_{cid}"):
+                    st.image(child["photo"], width=200)
+
             st.text(f"Notes: {child['notes']}")
+
+            # Show parents info if available
+            parents = child.get("parents_info", [])
+            if parents:
+                st.markdown("**Parent(s) Info:**")
+                for i, p in enumerate(parents):
+                    st.markdown(f"- **Name:** {p.get('name', 'N/A')}")
+                    st.markdown(f"  - Email: {p.get('email', 'N/A')}")
+                    st.markdown(f"  - Phone: {p.get('phone', 'N/A')}")
+
             if st.button(f"Show QR Code for {child['name']}", key=f"qr_{cid}"):
                 qr_path = os.path.join(FOLDER_PATHS["qrcodes"], f"{cid}.png")
                 if os.path.exists(qr_path):
                     st.image(qr_path)
                 else:
                     st.error("QR code not found.")
+
             if st.button(f"SOS Alert for {child['name']}", key=f"sos_{cid}"):
                 st.session_state.sos_log.append(f"SOS sent for {child['name']}")
                 st.warning(f"SOS alert sent for {child['name']}!")
@@ -164,18 +204,12 @@ def sos_log_page():
         for log in st.session_state.sos_log:
             st.write(log)
 
-# ------------------------ New Features ------------------------
-# ... [Rest of your feature pages unchanged, omitted here for brevity]
-# (Keep all your functions like activity_tracking_page(), milestone_tracking_page(), etc. exactly as before)
-
 # ------------------------ Main App ------------------------
 def main_app():
     st.sidebar.title(f"Welcome, {st.session_state.user['full_name']}")
     choice = st.sidebar.selectbox("Menu", [
         "Dashboard", "Add Child", "SOS Log",
-        "Activity Tracking", "Milestone Tracking", "Health Tracking",
-        "To-Do Lists", "Reminders", "Document Upload",
-        "Expenses", "Secure Messaging", "Mental Wellness", "Logout"
+        "Logout"
     ])
     if choice == "Dashboard":
         view_children_page()
@@ -183,10 +217,6 @@ def main_app():
         add_child_page()
     elif choice == "SOS Log":
         sos_log_page()
-    # Add your other page handlers here, e.g.
-    # elif choice == "Activity Tracking":
-    #     activity_tracking_page()
-    # ... etc
     elif choice == "Logout":
         st.session_state.user = None
         safe_rerun()
@@ -195,7 +225,6 @@ def main_app():
 def main():
     st.set_page_config(page_title="Cat’s Cradle", page_icon="🐱", layout="centered")
 
-    # Show logo (adjust path if needed)
     if os.path.exists("photos/cats_cradle_logo.png"):
         st.image("photos/cats_cradle_logo.png", width=200)
 
