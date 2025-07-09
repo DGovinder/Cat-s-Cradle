@@ -3,7 +3,6 @@ import json
 import os
 from PIL import Image
 import qrcode
-from io import BytesIO
 
 # ---------- Config / Setup ----------
 
@@ -66,7 +65,7 @@ if "sos_log" not in st.session_state:
 # ---------- Pages ----------
 
 def register_page():
-    st.title("Cat’s Cradle - Register")
+    st.title("🐱 Cat’s Cradle - Register")
     full_name = st.text_input("Full Name")
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
@@ -83,15 +82,15 @@ def register_page():
         st.success("Registration successful. You can now log in.")
 
 def login_page():
-    st.title("Cat’s Cradle - Login")
+    st.title("🐱 Cat’s Cradle - Login")
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
     if st.button("Login"):
         users = load_users()
         if email in users and users[email]["password"] == password:
             st.session_state.user = {"email": email, "full_name": users[email]["full_name"]}
-            st.success("Logged in!")
-            st.experimental_rerun()
+            st.success("Login successful!")
+            st.rerun()
         else:
             st.error("Invalid email or password.")
 
@@ -122,7 +121,6 @@ def add_child_page():
             "parent_email": st.session_state.user["email"]
         }
         save_children(children)
-        # Generate QR
         info = f"I’m lost! My name is {name}. Contact my parent: {st.session_state.user['email']}"
         generate_qr_code(child_id, info)
         st.success("Child added successfully!")
@@ -144,6 +142,8 @@ def view_children_page():
                 qr_path = os.path.join(QRCODE_DIR, f"{cid}.png")
                 if os.path.exists(qr_path):
                     st.image(qr_path)
+                else:
+                    st.error("QR code not found.")
             if st.button(f"SOS Alert for {child['name']}", key=f"sos_{cid}"):
                 st.session_state.sos_log.append(f"SOS sent for {child['name']}")
                 st.warning(f"SOS alert sent for {child['name']}!")
@@ -167,7 +167,7 @@ def main_app():
         sos_log_page()
     elif choice == "Logout":
         st.session_state.user = None
-        st.experimental_rerun()
+        st.rerun()
 
 # ---------- Main ----------
 
