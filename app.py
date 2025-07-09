@@ -1,13 +1,12 @@
 import streamlit as st
 import json
 import os
-from PIL import Image
 import qrcode
 from datetime import datetime
 
-# ------------------------ Config ------------------------
+# ------------------------ CONFIG ------------------------
 BASE_PATH = "."
-LOGO_PATH = "photos/your_logo.png"
+LOGO_PATH = "photos/cats_cradle_logo.png"
 
 DATA_FILES = {
     "users": "users.json",
@@ -30,31 +29,26 @@ FOLDER_PATHS = {
 
 for path in FOLDER_PATHS.values():
     os.makedirs(path, exist_ok=True)
+for file in DATA_FILES.values():
+    if not os.path.exists(file):
+        with open(file, "w") as f:
+            json.dump({}, f)
 
-# ------------------------ Utils ------------------------
+# ------------------------ UTILS ------------------------
 def show_logo():
     if os.path.exists(LOGO_PATH):
         st.image(LOGO_PATH, width=200)
 
 def load_json(file):
-    path = os.path.join(BASE_PATH, file)
-    if not os.path.exists(path):
-        with open(path, "w") as f:
-            json.dump({}, f)
-    with open(path, "r") as f:
+    with open(file, "r") as f:
         return json.load(f)
 
 def save_json(file, data):
-    path = os.path.join(BASE_PATH, file)
-    with open(path, "w") as f:
+    with open(file, "w") as f:
         json.dump(data, f, indent=2)
 
 def password_valid(password):
-    if len(password) < 6:
-        return False
-    has_number = any(char.isdigit() for char in password)
-    has_special = any(not char.isalnum() for char in password)
-    return has_number and has_special
+    return len(password) >= 6 and any(c.isdigit() for c in password) and any(not c.isalnum() for c in password)
 
 def generate_qr_code(child_id, info):
     qr = qrcode.QRCode(box_size=10, border=4)
@@ -65,77 +59,60 @@ def generate_qr_code(child_id, info):
     img.save(path)
     return path
 
-# ------------------------ Session ------------------------
+# ------------------------ SESSION INIT ------------------------
 if "user" not in st.session_state:
     st.session_state.user = None
 if "sos_log" not in st.session_state:
     st.session_state.sos_log = []
 
-# ------------------------ Auth Pages ------------------------
+# ------------------------ AUTH ------------------------
 def register_page():
     st.title("Register")
     show_logo()
-
     full_name = st.text_input("Full Name")
     email = st.text_input("Email").strip().lower()
     password = st.text_input("Password", type="password")
-
     if st.button("Register"):
         if not password_valid(password):
-            st.error("Password must be at least 6 characters and include numbers and special characters.")
+            st.error("Password must be at least 6 characters with numbers and special characters.")
             return
-
         users = load_json(DATA_FILES["users"])
         if email in users:
             st.error("Email already registered.")
             return
-
         users[email] = {"full_name": full_name, "password": password}
         save_json(DATA_FILES["users"], users)
-        st.success("✅ Registration successful! Now go to login.")
+        st.success("✅ Registered! Now log in.")
 
 def login_page():
     st.title("Login")
     show_logo()
-
     email = st.text_input("Email").strip().lower()
     password = st.text_input("Password", type="password")
-
     if st.button("Login"):
         users = load_json(DATA_FILES["users"])
-
-        if email in users:
-            if users[email]["password"] == password:
-                st.session_state.user = {
-                    "email": email,
-                    "full_name": users[email]["full_name"]
-                }
-                st.success("✅ Login successful!")
-                st.experimental_rerun()
-            else:
-                st.error("❌ Password does not match.")
+        if email in users and users[email]["password"] == password:
+            st.session_state.user = {"email": email, "full_name": users[email]["full_name"]}
+            st.experimental_rerun()
         else:
-            st.error("❌ Email not found. Have you registered?")
+            st.error("Invalid email or password.")
 
-# ------------------------ Child Management ------------------------
+# ------------------------ CHILD ------------------------
 def add_child_page():
     st.header("Add a Child")
     show_logo()
-
     name = st.text_input("Child Name")
-    age = st.number_input("Age", min_value=0, max_value=25, step=1)
+    age = st.number_input("Age", 0, 25, step=1)
     notes = st.text_area("Notes")
-    parent2_name = st.text_input("Additional Parent/Guardian Name (Optional)")
-    parent2_email = st.text_input("Additional Parent/Guardian Email (Optional)")
-    parent2_number = st.text_input("Additional Parent/Guardian Contact Number (Optional)")
-
+    parent2_name = st.text_input("Other Parent/Guardian Name (Optional)")
+    parent2_email = st.text_input("Other Parent/Guardian Email (Optional)")
+    parent2_number = st.text_input("Other Parent/Guardian Number (Optional)")
     photo = st.file_uploader("Upload Photo", type=["png", "jpg", "jpeg"])
 
     if st.button("Save Child"):
         if not name:
             st.error("Child name is required.")
             return
-
         children = load_json(DATA_FILES["children"])
         child_id = str(len(children) + 1)
         photo_path = ""
@@ -143,7 +120,6 @@ def add_child_page():
             photo_path = os.path.join(FOLDER_PATHS["photos"], f"{child_id}_{photo.name}")
             with open(photo_path, "wb") as f:
                 f.write(photo.read())
-
         children[child_id] = {
             "name": name,
             "age": age,
@@ -154,26 +130,20 @@ def add_child_page():
             "parent2_email": parent2_email,
             "parent2_number": parent2_number
         }
-
         save_json(DATA_FILES["children"], children)
-
         info = f"I’m lost! My name is {name}. Contact my parent: {st.session_state.user['email']}"
         generate_qr_code(child_id, info)
-
-        st.success("Child added successfully!")
+        st.success("✅ Child added!")
 
 def view_children_page():
     st.header("Your Children")
     show_logo()
-
     children = load_json(DATA_FILES["children"])
     user_email = st.session_state.user["email"]
     user_children = {cid: c for cid, c in children.items() if c["parent_email"] == user_email}
-
     if not user_children:
-        st.info("You have no children added yet.")
+        st.info("No children yet.")
         return
-
     for cid, child in user_children.items():
         with st.expander(f"{child['name']} (Age {child['age']})"):
             if child["photo"]:
@@ -181,15 +151,13 @@ def view_children_page():
             st.text(f"Notes: {child['notes']}")
             st.text(f"Primary Parent Email: {child['parent_email']}")
             if child.get("parent2_name"):
-                st.text(f"Additional Parent: {child['parent2_name']}")
+                st.text(f"Other Parent: {child['parent2_name']}")
                 st.text(f"Email: {child['parent2_email']}")
                 st.text(f"Number: {child['parent2_number']}")
-            if st.button(f"Show QR Code for {child['name']}", key=f"qr_{cid}"):
+            if st.button(f"Show QR for {child['name']}", key=f"qr_{cid}"):
                 qr_path = os.path.join(FOLDER_PATHS["qrcodes"], f"{cid}.png")
                 if os.path.exists(qr_path):
                     st.image(qr_path)
-                else:
-                    st.error("QR code not found.")
             if st.button(f"SOS Alert for {child['name']}", key=f"sos_{cid}"):
                 st.session_state.sos_log.append(f"SOS sent for {child['name']}")
                 st.warning(f"SOS alert sent for {child['name']}!")
@@ -203,84 +171,32 @@ def sos_log_page():
         for log in st.session_state.sos_log:
             st.write(log)
 
-# ------------------------ Other Features ------------------------
-def activity_tracking_page():
-    st.header("Baby Activity Tracking")
+# ------------------------ OTHER FEATURES ------------------------
+def generic_list_page(title, data_file, fields):
+    st.header(title)
     show_logo()
-    activities = load_json(DATA_FILES["activities"])
+    data = load_json(DATA_FILES[data_file])
     user_email = st.session_state.user["email"]
-    child_name = st.text_input("Child's Name")
-    activity = st.selectbox("Activity Type", ["Feeding", "Sleep", "Diaper Change", "Medication", "Growth"])
-    notes = st.text_area("Details / Notes")
-    if st.button("Save Activity"):
-        key = str(len(activities) + 1)
-        activities[key] = {
-            "parent": user_email,
-            "child": child_name,
-            "activity": activity,
-            "notes": notes,
-            "timestamp": datetime.now().isoformat()
-        }
-        save_json(DATA_FILES["activities"], activities)
-        st.success("Activity saved!")
 
-    st.subheader("Your Logged Activities")
-    for a in activities.values():
-        if a["parent"] == user_email:
-            st.markdown(f"**{a['child']}** - {a['activity']} at {a['timestamp']}")
-            st.text(a["notes"])
+    with st.form("entry_form"):
+        entries = {field: st.text_input(field) for field in fields}
+        submitted = st.form_submit_button("Save")
+        if submitted:
+            key = str(len(data) + 1)
+            data[key] = {
+                "parent": user_email,
+                "timestamp": datetime.now().isoformat(),
+                **entries
+            }
+            save_json(DATA_FILES[data_file], data)
+            st.success("Saved!")
 
-def milestone_tracking_page():
-    st.header("Milestone Tracking")
-    show_logo()
-    milestones = load_json(DATA_FILES["milestones"])
-    user_email = st.session_state.user["email"]
-    child_name = st.text_input("Child's Name")
-    milestone = st.text_input("Milestone Achieved")
-    notes = st.text_area("Notes")
-    if st.button("Save Milestone"):
-        key = str(len(milestones) + 1)
-        milestones[key] = {
-            "parent": user_email,
-            "child": child_name,
-            "milestone": milestone,
-            "notes": notes,
-            "timestamp": datetime.now().isoformat()
-        }
-        save_json(DATA_FILES["milestones"], milestones)
-        st.success("Milestone saved!")
-
-    st.subheader("Your Milestones")
-    for m in milestones.values():
-        if m["parent"] == user_email:
-            st.markdown(f"**{m['child']}** - {m['milestone']} at {m['timestamp']}")
-            st.text(m["notes"])
-
-def health_tracking_page():
-    st.header("Health Tracking")
-    show_logo()
-    health = load_json(DATA_FILES["health"])
-    user_email = st.session_state.user["email"]
-    child_name = st.text_input("Child's Name")
-    health_event = st.text_input("Event (e.g. Vaccination, Doctor Visit, Symptom)")
-    notes = st.text_area("Details")
-    if st.button("Save Health Event"):
-        key = str(len(health) + 1)
-        health[key] = {
-            "parent": user_email,
-            "child": child_name,
-            "event": health_event,
-            "notes": notes,
-            "timestamp": datetime.now().isoformat()
-        }
-        save_json(DATA_FILES["health"], health)
-        st.success("Health record saved!")
-
-    st.subheader("Your Health Records")
-    for h in health.values():
-        if h["parent"] == user_email:
-            st.markdown(f"**{h['child']}** - {h['event']} at {h['timestamp']}")
-            st.text(h["notes"])
+    st.subheader("Your Entries")
+    for item in data.values():
+        if item["parent"] == user_email:
+            st.markdown(f"- {item['timestamp']}")
+            for field in fields:
+                st.text(f"{field}: {item.get(field, '')}")
 
 def todos_page():
     st.header("To-Do Lists")
@@ -290,14 +206,9 @@ def todos_page():
     task = st.text_input("Task")
     if st.button("Add Task"):
         key = str(len(todos) + 1)
-        todos[key] = {
-            "parent": user_email,
-            "task": task,
-            "done": False
-        }
+        todos[key] = {"parent": user_email, "task": task, "done": False}
         save_json(DATA_FILES["todos"], todos)
-        st.success("Task added!")
-
+        st.success("Added!")
     st.subheader("Your Tasks")
     for k, t in todos.items():
         if t["parent"] == user_email:
@@ -305,52 +216,53 @@ def todos_page():
                 t["done"] = True
                 save_json(DATA_FILES["todos"], todos)
 
-def reminders_page():
-    st.header("Reminders")
-    show_logo()
-    reminders = load_json(DATA_FILES["reminders"])
-    user_email = st.session_state.user["email"]
-    reminder = st.text_input("Reminder Text")
-    if st.button("Save Reminder"):
-        key = str(len(reminders) + 1)
-        reminders[key] = {
-            "parent": user_email,
-            "reminder": reminder,
-            "timestamp": datetime.now().isoformat()
-        }
-        save_json(DATA_FILES["reminders"], reminders)
-        st.success("Reminder saved!")
-
-    st.subheader("Your Reminders")
-    for r in reminders.values():
-        if r["parent"] == user_email:
-            st.markdown(f"- {r['reminder']} ({r['timestamp']})")
-
 def documents_page():
-    st.header("Document Upload")
+    st.header("Documents")
     show_logo()
     documents = FOLDER_PATHS["documents"]
-    uploaded = st.file_uploader("Upload Document", type=["pdf", "png", "jpg", "jpeg"])
+    uploaded = st.file_uploader("Upload", type=["pdf", "png", "jpg", "jpeg"])
     if uploaded:
         path = os.path.join(documents, uploaded.name)
         with open(path, "wb") as f:
             f.write(uploaded.read())
         st.success(f"Uploaded {uploaded.name}")
-
-    st.subheader("Uploaded Documents")
+    st.subheader("Your Documents")
     for fname in os.listdir(documents):
         st.markdown(f"- {fname}")
 
-def expenses_page():
-    st.header("Expense Tracking")
-    show_logo()
-    expenses = load_json(DATA_FILES["expenses"])
-    user_email = st.session_state.user["email"]
-    desc = st.text_input("Expense Description")
-    amount = st.number_input("Amount", min_value=0.0, step=1.0)
-    if st.button("Save Expense"):
-        key = str(len(expenses) + 1)
+# ------------------------ MAIN APP ------------------------
+def main_app():
+    st.sidebar.title(f"Welcome, {st.session_state.user['full_name']}")
+    choice = st.sidebar.selectbox("Menu", [
+        "Dashboard", "Add Child", "SOS Log",
+        "Activity Tracking", "Milestone Tracking", "Health Tracking",
+        "To-Do Lists", "Reminders", "Document Upload",
+        "Expenses", "Secure Messaging", "Mental Wellness", "Logout"
+    ])
+    if choice == "Dashboard": view_children_page()
+    elif choice == "Add Child": add_child_page()
+    elif choice == "SOS Log": sos_log_page()
+    elif choice == "Activity Tracking": generic_list_page("Activity Tracking", "activities", ["Child's Name", "Activity Type", "Notes"])
+    elif choice == "Milestone Tracking": generic_list_page("Milestone Tracking", "milestones", ["Child's Name", "Milestone", "Notes"])
+    elif choice == "Health Tracking": generic_list_page("Health Tracking", "health", ["Child's Name", "Event", "Details"])
+    elif choice == "To-Do Lists": todos_page()
+    elif choice == "Reminders": generic_list_page("Reminders", "reminders", ["Reminder Text"])
+    elif choice == "Document Upload": documents_page()
+    elif choice == "Expenses": generic_list_page("Expenses", "expenses", ["Description", "Amount"])
+    elif choice == "Secure Messaging": generic_list_page("Secure Messaging", "messages", ["Message"])
+    elif choice == "Mental Wellness": generic_list_page("Mental Wellness", "wellness", ["Mood (0-10)", "Notes"])
+    elif choice == "Logout":
+        st.session_state.user = None
+        st.experimental_rerun()
 
+# ------------------------ MAIN ------------------------
+def main():
+    st.set_page_config(page_title="Cat's Cradle", layout="centered")
+    if not st.session_state.user:
+        page = st.sidebar.radio("Auth", ["Login", "Register"])
+        if page == "Login": login_page()
+        else: register_page()
+    else:
         main_app()
 
 if __name__ == "__main__":
