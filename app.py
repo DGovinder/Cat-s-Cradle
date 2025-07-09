@@ -3,7 +3,6 @@ import json
 import os
 from PIL import Image
 import qrcode
-from datetime import datetime
 
 # ------------------------ Config ------------------------
 BASE_PATH = "."
@@ -14,6 +13,8 @@ QRCODES_DIR = "qrcodes"
 
 os.makedirs(PHOTOS_DIR, exist_ok=True)
 os.makedirs(QRCODES_DIR, exist_ok=True)
+
+LOGO_PATH = os.path.join(PHOTOS_DIR, "cats_cradle_logo.png")
 
 # ------------------------ Utils ------------------------
 @st.cache_data
@@ -45,6 +46,12 @@ def password_valid(password):
     has_special = any(not char.isalnum() for char in password)
     return has_number and has_special
 
+def show_logo():
+    if os.path.exists(LOGO_PATH):
+        st.image(LOGO_PATH, width=200)
+    else:
+        st.warning("Logo not found. Please place 'cats_cradle_logo.png' inside the photos/ folder.")
+
 # ------------------------ Session ------------------------
 if "user" not in st.session_state:
     st.session_state.user = None
@@ -53,9 +60,9 @@ if "logged_in" not in st.session_state:
 
 # ------------------------ Auth Pages ------------------------
 def register_page():
-    st.title("🐱 Cat’s Cradle - Register")
+    st.title("Register")
     full_name = st.text_input("Full Name")
-    email = st.text_input("Email")
+    email = st.text_input("Email").strip().lower()
     password = st.text_input("Password", type="password")
     if st.button("Register"):
         if not password_valid(password):
@@ -70,8 +77,8 @@ def register_page():
         st.success("Registration successful! You can now log in.")
 
 def login_page():
-    st.title("🐱 Cat’s Cradle - Login")
-    email = st.text_input("Email")
+    st.title("Login")
+    email = st.text_input("Email").strip().lower()
     password = st.text_input("Password", type="password")
     if st.button("Login"):
         users = load_json(USERS_FILE)
@@ -187,9 +194,9 @@ def main_app():
 
 # ------------------------ Main ------------------------
 def main():
-    st.set_page_config(page_title="Cat’s Cradle", page_icon="🐱", layout="centered")
-    st.image("photos/cats_cradle_logo.png", width=200)
-    st.title("🐱 Cat’s Cradle")
+    st.set_page_config(page_title="Cat’s Cradle", layout="centered")
+    show_logo()
+    st.title("Cat’s Cradle")
 
     if not st.session_state.get("logged_in", False):
         auth_choice = st.sidebar.radio("Auth", ["Login", "Register"])
