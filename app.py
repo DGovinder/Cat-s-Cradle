@@ -443,7 +443,7 @@ def main():
     st.set_page_config(page_title="Cat’s Cradle", page_icon="🐱", layout="centered")
 
     if os.path.exists("photos/cats_cradle_logo.png"):
-        st.image("photos/cats_cradle_logo.png", width=600)
+        st.image("photos/cats_cradle_logo.png", width=450)
 
     st.title("Cat’s Cradle")
 
