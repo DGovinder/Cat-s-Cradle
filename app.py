@@ -19,7 +19,8 @@ os.makedirs(QRCODE_DIR, exist_ok=True)
 
 def load_users():
     if not os.path.exists(USERS_FILE):
-        return {}
+        with open(USERS_FILE, "w") as f:
+            json.dump({}, f)
     with open(USERS_FILE, "r") as f:
         return json.load(f)
 
@@ -29,7 +30,8 @@ def save_users(users):
 
 def load_children():
     if not os.path.exists(CHILDREN_FILE):
-        return {}
+        with open(CHILDREN_FILE, "w") as f:
+            json.dump({}, f)
     with open(CHILDREN_FILE, "r") as f:
         return json.load(f)
 
@@ -89,6 +91,7 @@ def login_page():
         if email in users and users[email]["password"] == password:
             st.session_state.user = {"email": email, "full_name": users[email]["full_name"]}
             st.success("Logged in!")
+            st.experimental_rerun()
         else:
             st.error("Invalid email or password.")
 
@@ -100,6 +103,10 @@ def add_child_page():
     photo = st.file_uploader("Upload Photo", type=["png", "jpg", "jpeg"])
 
     if st.button("Save Child"):
+        if not name:
+            st.error("Child name is required.")
+            return
+
         children = load_children()
         child_id = str(len(children) + 1)
         photo_path = ""
